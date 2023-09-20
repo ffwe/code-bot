@@ -9,6 +9,7 @@
     "del": "pm2 del all",
     "cmd-dev": "node deploy-cmd-dev.js",
     "cmd": "node deploy-cmd.js",
+    "nodemon": "nodemon ./src/index.js --dev",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

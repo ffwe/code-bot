@@ -48,7 +48,7 @@ client.once(Events.ClientReady, c => {
   console.log(`Ready! Logged in as ${c.user.tag}`);
 });
 
-const { codeBlock } = require('@discordjs/builders');
+const { EmbedBuilder, codeBlock } = require('@discordjs/builders');
 const modalData = new Map();
 
 client.on(Events.InteractionCreate, async interaction => {
@@ -66,10 +66,30 @@ client.on(Events.InteractionCreate, async interaction => {
     }
     if (interaction.isModalSubmit()) {
       if (interaction.customId === 'myModal') {
+        const {guild, user} = interaction;
         const language = interaction.fields.getTextInputValue('languageInput').trim().toLowerCase();
         const code = interaction.fields.getTextInputValue('codeInput');
 
         const { output, debuglog, highlight } = await executeCode(language, code);
+
+        const nickname = guild.member?.displayName || user.displayName || user.username;
+
+        // inside a command, event listener, etc.
+        const resultEmbed = new EmbedBuilder()
+          .setAuthor({ name: nickname, iconURL: user.avatarURL(), url: user.avatarURL() })
+          .setTitle('language')
+          .setDescription(languageMap[language] || language)
+          .addFields(
+            { name: 'source', value: codeBlock(highlight, code) },
+            { name: 'output', value: codeBlock(output) },
+            { name: 'stack trace', value: codeBlock('sh', debuglog) },
+          )
+          .setTimestamp()
+          .setFooter({ text: client.user.displayName, iconURL: client.user.displayAvatarURL() });
+
+        await interaction.reply({ embeds: [resultEmbed] });
+
+        return;
 
         // Save the code and debuglog for this interaction using interactionId as the key
         modalData.set(interaction.id, { code, debuglog, highlight });
@@ -135,21 +155,22 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 const TIO = require('./tio/tio.js');
+const languageMap = {
+  'js': 'javascript-v8',
+  'ts': 'typescript',
+  'py': 'python3',
+  'perl': 'perl6',
+  'java': 'java-openjdk',
+  'cpp': 'ecpp-cpp',
+  'c': 'c-clang',
+  'python': 'python3',
+  'javascript': 'javascript-v8',
+  'node': 'javascript-node',
+}
 
 async function executeCode(search, code) {
   //const tioUrl = 'https://tio.run/cgi-bin/run/api/';
-  const languageMap = {
-    'js': 'javascript-v8',
-    'ts': 'typescript',
-    'py': 'python3',
-    'perl': 'perl6',
-    'java': 'java-openjdk',
-    'cpp': 'ecpp-cpp',
-    'c': 'c-clang',
-    'python': 'python3',
-    'javascript': 'javascript-v8',
-    'node': 'javascript-node',
-  }
+
   let language = languageMap[search] || search;
 
   const payload = {
