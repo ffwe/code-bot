@@ -4,6 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dev": "pm2 start ecosystem.config.js --only code-bot-dev --env development",
+    "start": "pm2 start ecosystem.config.js --only code-bot --env production",
+    "del": "pm2 del all",
+    "cmd-dev": "node deploy-cmd-dev.js",
+    "cmd": "node deploy-cmd.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

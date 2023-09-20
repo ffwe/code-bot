@@ -1,5 +1,12 @@
-require('dotenv').config();
-const { TOKEN: token, CLIENT_ID: clientId, GUILD_ID: guildId } = process.env;
+const dotenv = require('dotenv');
+// Check for --dev option
+if (process.argv.includes('--dev')) {
+    dotenv.config({path: '.env.dev'});
+} else {
+    dotenv.config({path: '.env'});
+}
+
+const {token, clientId} = process.env;
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -9,6 +16,10 @@ const { Client, Collection, Events, GatewayIntentBits, ActionRowBuilder, ButtonB
 
 // Create a new client instance
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+
+const deployCommands = require('./helpers/deployCommands.js');
+
+deployCommands(token, clientId);
 
 client.commands = new Collection();
 
@@ -129,10 +140,12 @@ async function executeCode(search, code) {
   //const tioUrl = 'https://tio.run/cgi-bin/run/api/';
   const languageMap = {
     'js': 'javascript-v8',
+    'ts': 'typescript',
     'py': 'python3',
     'perl': 'perl6',
     'java': 'java-openjdk',
     'cpp': 'ecpp-cpp',
+    'c': 'c-clang',
     'python': 'python3',
     'javascript': 'javascript-v8',
     'node': 'javascript-node',
