@@ -49,7 +49,53 @@ client.once(Events.ClientReady, c => {
 });
 
 const { EmbedBuilder, codeBlock } = require('@discordjs/builders');
-const modalData = new Map();
+
+const languageMap = {
+  'js': 'javascript-v8',
+  'ts': 'typescript',
+  'py': 'python3',
+  'perl': 'perl6',
+  'java': 'java-openjdk',
+  'cpp': 'ecpp-cpp',
+  'c': 'c-clang',
+  'cs': 'cs-core',
+  'csharp': 'cs-core',
+  'python': 'python3',
+  'javascript': 'javascript-v8',
+  'node': 'javascript-node',
+};
+
+function wrapMainFunction(lang, code) {
+  let wrappedCode;
+
+  switch (lang.toLowerCase()) {
+      case 'c-clang':
+      case 'ecpp-cpp':
+          wrappedCode = `#include <stdio.h>\n\n${code}\n\nint main() {\n    // Your code here\n    return 0;\n}`;
+          break;
+      case 'cs-core':
+          wrappedCode = `using System;\n\n${code}\n\nclass Program {\n    static void Main(string[] args) {\n        // Your code here\n    }\n}`;
+          break;
+      case 'java-openjdk':
+          wrappedCode = `public class Main {\n    public static void main(String[] args) {\n        ${code}\n    }\n}`;
+          break;
+      case 'rust':
+          wrappedCode = `${code}\n\nfn main() {\n    // Your code here\n}`;
+          break;
+      case 'd':
+          wrappedCode = `void main() {\n    ${code}\n}`;
+          break;
+      case 'kotlin':
+          wrappedCode = `fun main(args: Array<String>) {\n    ${code}\n}`;
+          break;
+      default:
+          wrappedCode = code; // 그 외의 경우에는 코드 그대로 반환
+          break;
+  }
+
+  return wrappedCode;
+}
+
 
 client.on(Events.InteractionCreate, async interaction => {
   try {
@@ -65,10 +111,12 @@ client.on(Events.InteractionCreate, async interaction => {
       return;
     }
     if (interaction.isModalSubmit()) {
-      if (interaction.customId === 'myModal') {
+      const [modalName, wrapper] = interaction.customId.split(':');
+      if (modalName === 'myModal') {
         const {guild, user} = interaction;
         const language = interaction.fields.getTextInputValue('languageInput').trim().toLowerCase();
-        const code = interaction.fields.getTextInputValue('codeInput');
+        const mappedLanguage = languageMap[language] || language;
+        const code = wrapper === 'true' ? wrapMainFunction(mappedLanguage, interaction.fields.getTextInputValue('codeInput')) : interaction.fields.getTextInputValue('codeInput');
 
         const { output, debuglog, highlight } = await executeCode(language, code);
 
@@ -78,7 +126,7 @@ client.on(Events.InteractionCreate, async interaction => {
         const resultEmbed = new EmbedBuilder()
           .setAuthor({ name: nickname, iconURL: user.avatarURL(), url: user.avatarURL() })
           .setTitle('language')
-          .setDescription(languageMap[language] || language)
+          .setDescription(mappedLanguage)
           .addFields(
             { name: 'source', value: codeBlock(highlight, code) },
             { name: 'output', value: codeBlock(output) },
@@ -88,60 +136,7 @@ client.on(Events.InteractionCreate, async interaction => {
           .setFooter({ text: client.user.displayName, iconURL: client.user.displayAvatarURL() });
 
         await interaction.reply({ embeds: [resultEmbed] });
-
-        return;
-
-        // Save the code and debuglog for this interaction using interactionId as the key
-        modalData.set(interaction.id, { code, debuglog, highlight });
-
-        setTimeout(() => {
-          modalData.delete(interaction.id);
-          console.log(`modalData ${interaction.id} was deleted.`);
-        }, 24 * 60 * 60 * 1000);
-
-        const source = new ButtonBuilder()
-          .setCustomId(`source:${interaction.id}`)
-          .setLabel('Source')
-          .setStyle(ButtonStyle.Secondary);
-
-        const debug = new ButtonBuilder()
-          .setCustomId(`debug:${interaction.id}`)
-          .setLabel('Debug')
-          .setStyle(ButtonStyle.Danger);
-
-        const row = new ActionRowBuilder()
-          .addComponents(source, debug);
-
-        await interaction.reply({
-          content: codeBlock(output),
-          components: [row],
-        });
-
       }
-      return;
-    }
-    if (interaction.isButton()) {
-      const [buttonType, modalId] = interaction.customId.split(':');
-      if (!modalData.get(modalId)) {
-        await interaction.reply({ content: '공유 시간이 만료되었습니다.', ephemeral: true });
-        return;
-      }
-      const { code, debuglog, highlight } = modalData.get(modalId);
-      if (buttonType === 'source') {
-        await interaction.reply({
-          content: codeBlock(highlight, code),
-          ephemeral: true
-        });
-        return;
-      }
-      if (buttonType === 'debug') {
-        await interaction.reply({
-          content: codeBlock(debuglog),
-          ephemeral: true
-        });
-        return;
-      }
-
       return;
     }
   } catch (error) {
@@ -155,18 +150,6 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 const TIO = require('./tio/tio.js');
-const languageMap = {
-  'js': 'javascript-v8',
-  'ts': 'typescript',
-  'py': 'python3',
-  'perl': 'perl6',
-  'java': 'java-openjdk',
-  'cpp': 'ecpp-cpp',
-  'c': 'c-clang',
-  'python': 'python3',
-  'javascript': 'javascript-v8',
-  'node': 'javascript-node',
-}
 
 async function executeCode(search, code) {
   //const tioUrl = 'https://tio.run/cgi-bin/run/api/';
